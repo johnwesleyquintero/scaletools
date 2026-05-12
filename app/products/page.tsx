@@ -13,7 +13,8 @@ import {
   Upload, 
   CheckCircle2, 
   AlertCircle, 
-  RefreshCw 
+  RefreshCw,
+  ShoppingBag
 } from 'lucide-react';
 
 export default function ProductsPage() {
@@ -22,6 +23,9 @@ export default function ProductsPage() {
   const [isIngesting, setIsIngesting] = useState(false);
   const [results, setResults] = useState<SupplierMatch[] | null>(null);
   const [ingestionSummary, setIngestionSummary] = useState<any | null>(null);
+  const [productTitle, setProductTitle] = useState<string | null>(null);
+  const [addedItems, setAddedItems] = useState<Record<string, boolean>>({});
+  const [isAddingToPO, setIsAddingToPO] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     if (!asin) return;
@@ -40,6 +44,7 @@ export default function ProductsPage() {
       const data = await response.json();
       if (data.matched_suppliers) {
         setResults(data.matched_suppliers);
+        setProductTitle(data.product_title || 'Unknown Product');
       }
     } catch (error) {
       console.error('Error analyzing product:', error);
@@ -78,6 +83,40 @@ export default function ProductsPage() {
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleAddToPO = async (match: SupplierMatch) => {
+    setIsAddingToPO(match.supplier_id);
+    try {
+      const response = await fetch('/api/procurement/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supplierId: match.supplier_id,
+          supplierName: match.supplier_name,
+          item: {
+            asin: asin,
+            title: productTitle || 'Unknown Product',
+            supplier_price: match.estimated_cost,
+            amazon_price: match.estimated_cost + match.estimated_margin,
+            quantity: 1,
+            projected_margin: match.estimated_margin,
+            confidence_score: match.match_confidence
+          }
+        })
+      });
+      
+      if (response.ok) {
+        setAddedItems(prev => ({ ...prev, [match.supplier_id]: true }));
+        setTimeout(() => {
+          setAddedItems(prev => ({ ...prev, [match.supplier_id]: false }));
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Error adding to PO:', error);
+    } finally {
+      setIsAddingToPO(null);
+    }
   };
 
   return (
@@ -278,6 +317,26 @@ export default function ProductsPage() {
                             </div>
                             <div className="text-lg font-bold text-white">{(match.roi * 100).toFixed(1)}%</div>
                           </div>
+                          
+                          <button
+                            onClick={() => handleAddToPO(match)}
+                            disabled={isAddingToPO === match.supplier_id || addedItems[match.supplier_id]}
+                            className={cn(
+                              "col-span-2 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2",
+                              addedItems[match.supplier_id] 
+                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                                : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
+                            )}
+                          >
+                            {addedItems[match.supplier_id] ? (
+                              <CheckCircle2 className="w-3 h-3" />
+                            ) : isAddingToPO === match.supplier_id ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <ShoppingBag className="w-3 h-3 text-indigo-400" />
+                            )}
+                            {addedItems[match.supplier_id] ? 'Added to Draft' : 'Add to Draft PO'}
+                          </button>
                         </div>
                       </div>
                     </div>

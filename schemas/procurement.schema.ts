@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const POItemSchema = z.object({
   asin: z.string(),
+  title: z.string().optional(),
   supplier_price: z.number(),
   amazon_price: z.number(),
   quantity: z.number().min(1),

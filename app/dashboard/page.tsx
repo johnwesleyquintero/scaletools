@@ -12,12 +12,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  useEffect(() => {
-    fetchSuppliers();
-  }, []);
-
   const fetchSuppliers = async () => {
-    setIsLoading(true);
     try {
       const response = await fetch('/api/suppliers');
       const data = await response.json();
@@ -28,6 +23,15 @@ export default function DashboardPage() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Using a microtask or timeout to avoid synchronous setState in effect
+    // which triggers the cascading render lint error in Next.js 16/React 19
+    const timer = setTimeout(() => {
+      fetchSuppliers();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -45,6 +49,7 @@ export default function DashboardPage() {
       const data = await response.json();
       
       if (data.success) {
+        setIsLoading(true);
         await fetchSuppliers();
         alert(`Sync Complete!\nCreated: ${data.created}\nUpdated: ${data.updated}\nMerged: ${data.merged}\nIgnored: ${data.ignored}`);
       } else {

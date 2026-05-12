@@ -165,7 +165,7 @@ export default function ProcurementPage() {
 
               <div className="mt-12 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-xl">
                 <p className="text-xs text-indigo-300 leading-relaxed italic">
-                  "Phase 7 Scaffold: Preparing a controlled execution layer between intelligence and money movement."
+                  &quot;Phase 7 Scaffold: Preparing a controlled execution layer between intelligence and money movement.&quot;
                 </p>
               </div>
             </div>

@@ -25,6 +25,12 @@ export function CommandPalette() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const closePalette = () => {
+    setIsOpen(false);
+    setQuery('');
+    setResults([]);
+  };
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
@@ -32,7 +38,7 @@ export function CommandPalette() {
         setIsOpen((open) => !open);
       }
       if (e.key === 'Escape') {
-        setIsOpen(false);
+        closePalette();
       }
     };
 
@@ -43,9 +49,6 @@ export function CommandPalette() {
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
-    } else {
-      setQuery('');
-      setResults([]);
     }
   }, [isOpen]);
 
@@ -88,7 +91,7 @@ export function CommandPalette() {
 
   const handleSelect = (result: any) => {
     router.push(result.url);
-    setIsOpen(false);
+    closePalette();
   };
 
   if (!isOpen) return null;
@@ -129,7 +132,7 @@ export function CommandPalette() {
                     key={i}
                     onClick={() => {
                       router.push(action.path);
-                      setIsOpen(false);
+                      closePalette();
                     }}
                     className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all text-sm border border-transparent hover:border-slate-700 group"
                   >
@@ -186,7 +189,7 @@ export function CommandPalette() {
 
           {query !== '' && !isLoading && results.length === 0 && (
             <div className="p-12 text-center">
-              <p className="text-sm text-slate-500">No results found for "{query}"</p>
+              <p className="text-sm text-slate-500">No results found for &quot;{query}&quot;</p>
             </div>
           )}
         </div>
@@ -201,8 +204,7 @@ export function CommandPalette() {
       </div>
       
       {/* Click outside to close */}
-      <div className="absolute inset-0 -z-10" onClick={() => setIsOpen(false)} />
+      <div className="absolute inset-0 -z-10" onClick={closePalette} />
     </div>
   );
 }
-

@@ -47,5 +47,43 @@ export const procurementStore = {
   async getDraftById(id: string): Promise<DraftPO | undefined> {
     const drafts = await this.getAllDrafts();
     return drafts.find(d => d.id === id);
+  },
+
+  /**
+   * Adds an item to a draft PO for a specific supplier.
+   * If no draft exists for the supplier, a new one is created.
+   */
+  async addItemToDraft(supplierId: string, supplierName: string, item: any) {
+    const drafts = await this.getAllDrafts();
+    let draft = drafts.find(d => d.supplier_id === supplierId && d.status === 'draft');
+    
+    if (!draft) {
+      draft = {
+        id: `PO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        status: 'draft',
+        supplier_id: supplierId,
+        supplier_name: supplierName,
+        items: [],
+        total_cost: 0,
+        projected_profit: 0,
+        created_at: Date.now(),
+      };
+      drafts.push(draft);
+    }
+    
+    // Check if item already exists in this draft
+    const existingItemIndex = draft.items.findIndex((i: any) => i.asin === item.asin);
+    if (existingItemIndex >= 0) {
+      draft.items[existingItemIndex].quantity += item.quantity;
+    } else {
+      draft.items.push(item);
+    }
+    
+    // Recalculate totals
+    draft.total_cost = draft.items.reduce((sum: number, i: any) => sum + (i.supplier_price * i.quantity), 0);
+    draft.projected_profit = draft.items.reduce((sum: number, i: any) => sum + (i.projected_margin * i.quantity), 0);
+    
+    await fs.writeFile(STORE_PATH, JSON.stringify(drafts, null, 2));
+    return draft;
   }
 };
