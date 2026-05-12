@@ -1,4 +1,5 @@
 import { DraftPO } from '@/schemas/procurement.schema';
+import { outcomeStore } from './outcomeStore';
 
 export interface SupplierAllocationMetrics {
   supplierId: string;
@@ -9,6 +10,7 @@ export interface SupplierAllocationMetrics {
   riskScore: number;
   confidenceScore: number;
   totalValueInDraft: number;
+  accuracyScore: number;
 }
 
 export interface AllocationResult {
@@ -26,17 +28,21 @@ export interface AllocationResult {
  */
 export const capitalAllocationEngine = {
   /**
-   * Aggregates metrics from active drafts.
+   * Aggregates metrics from active drafts, including historical accuracy.
    */
   async computeSupplierMetrics(drafts: DraftPO[]): Promise<SupplierAllocationMetrics[]> {
-    return drafts.map(draft => {
+    const metricsPromises = drafts.map(async draft => {
       const totalItems = draft.items.length;
       const avgROI = draft.items.reduce((sum, item) => sum + (item.projected_margin / (item.supplier_price || 1)), 0) / (totalItems || 1);
       const avgMargin = draft.projected_profit / (totalItems || 1);
       const confidenceScore = draft.items.reduce((sum, item) => sum + item.confidence_score, 0) / (totalItems || 1);
       
-      // Heuristic: Risk is inverse of confidence + items density penalty (more items = more complexity/risk)
-      const riskScore = Math.max(0, (1 - confidenceScore) * 0.8);
+      const outcomeMetrics = await outcomeStore.getSupplierMetrics(draft.supplier_id);
+      
+      // Heuristic: Risk is inverse of confidence + items density penalty
+      // Feedback: Adjust risk based on historical accuracy
+      const baseRisk = Math.max(0, (1 - confidenceScore) * 0.8);
+      const riskScore = baseRisk * (2 - outcomeMetrics.accuracy_score);
       
       return {
         supplierId: draft.supplier_id,
@@ -46,9 +52,12 @@ export const capitalAllocationEngine = {
         opportunityDensity: totalItems,
         riskScore,
         confidenceScore,
-        totalValueInDraft: draft.total_cost
+        totalValueInDraft: draft.total_cost,
+        accuracyScore: outcomeMetrics.accuracy_score
       };
     });
+
+    return Promise.all(metricsPromises);
   },
 
   /**
@@ -59,16 +68,15 @@ export const capitalAllocationEngine = {
 
     // 1. Calculate weighted scores
     const scoredSuppliers = metrics.map(m => {
-      // weights: ROI (60%), Confidence (25%), Density (15%)
-      // subtract Risk penalty
-      const roiScore = Math.min(1, m.avgROI); // Cap at 100% for scoring
-      const densityBonus = Math.min(0.15, (m.opportunityDensity / 10) * 0.15);
+      // weights: ROI (50%), Accuracy (30%), Confidence (10%), Density (10%)
+      const roiScore = Math.min(1, m.avgROI);
+      const densityBonus = Math.min(0.1, (m.opportunityDensity / 10) * 0.1);
       
-      const rawScore = (roiScore * 0.6) + (m.confidenceScore * 0.25) + densityBonus - (m.riskScore * 0.3);
+      const rawScore = (roiScore * 0.5) + (m.accuracyScore * 0.3) + (m.confidenceScore * 0.1) + densityBonus - (m.riskScore * 0.2);
       
       return {
         ...m,
-        rawScore: Math.max(0.1, rawScore) // Ensure at least a base floor
+        rawScore: Math.max(0.05, rawScore)
       };
     });
 

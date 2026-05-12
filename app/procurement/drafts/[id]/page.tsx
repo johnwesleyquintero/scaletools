@@ -106,13 +106,21 @@ export default function DraftDetailPage() {
     
     setIsSaving(true);
     try {
+      // 1. Record outcomes for feedback loop
+      await fetch('/api/procurement/outcomes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poId: id })
+      });
+
+      // 2. Update status
       const response = await fetch(`/api/procurement/drafts/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedDraft)
       });
       if (response.ok) {
-        alert('PO marked as Ready to Send!');
+        alert('PO marked as Ready to Send & recorded in Truth Layer!');
       }
     } catch (error) {
       console.error('Error updating status:', error);

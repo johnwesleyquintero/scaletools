@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { 
   DollarSign, 
@@ -31,7 +31,7 @@ export default function AllocationPage() {
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const calculateAllocation = async () => {
+  const calculateAllocation = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/procurement/allocation', {
@@ -46,14 +46,14 @@ export default function AllocationPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [capital]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       calculateAllocation();
     }, 0);
     return () => clearTimeout(timer);
-  }, []);
+  }, [calculateAllocation]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 p-6 md:p-12">

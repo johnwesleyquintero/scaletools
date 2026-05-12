@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ROUTE_MAP, RouteSection } from '@/lib/navigation/routeMap';
+import { APP_ROUTES, ROUTE_SECTIONS, RouteSection } from '@/lib/navigation/routeMap';
 import { cn } from '@/lib/utils';
 import { 
   ChevronRight, 
@@ -11,16 +11,7 @@ import {
   Cpu, 
   Menu, 
   X,
-  Search,
-  Activity,
-  History,
-  Database,
-  BarChart3,
-  ShoppingBag,
-  ClipboardList,
-  LayoutDashboard,
-  ShieldCheck,
-  FileText
+  Target
 } from 'lucide-react';
 
 export function Sidebar() {
@@ -28,21 +19,15 @@ export function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     intelligence: true,
-    suppliers: true,
-    procurement: true,
-    system: true
+    finance: true,
+    system: false
   });
 
   const toggleSection = (section: RouteSection) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  const sections: { id: RouteSection; label: string; icon: any }[] = [
-    { id: 'intelligence', label: 'Intelligence Layer', icon: Cpu },
-    { id: 'suppliers', label: 'Supplier Layer', icon: Database },
-    { id: 'procurement', label: 'Procurement Layer', icon: ShoppingBag },
-    { id: 'system', label: 'System Layer', icon: LayoutDashboard }
-  ];
+  const sections = ROUTE_SECTIONS;
 
   return (
     <>
@@ -109,7 +94,7 @@ export function Sidebar() {
                 "space-y-0.5 mt-1 overflow-hidden transition-all duration-300",
                 expandedSections[section.id] ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
               )}>
-                {ROUTE_MAP.filter(r => r.section === section.id && r.status !== 'hidden').map((route) => {
+                {APP_ROUTES.filter(r => r.section === section.id && r.status !== 'hidden').map((route) => {
                   const isActive = pathname === route.path;
                   const Icon = route.icon;
                   

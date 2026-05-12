@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { ROUTE_MAP } from './routeMap';
+import { APP_ROUTES } from './routeMap';
 
 export interface RouteValidationResult {
   valid: string[];
@@ -21,7 +21,7 @@ export function validateRoutes(): RouteValidationResult {
   };
 
   // 1. Check if routes in map exist in filesystem
-  ROUTE_MAP.forEach(route => {
+  APP_ROUTES.forEach(route => {
     if (route.status === 'hidden') return;
     
     // Convert path like /system/routes to app/system/routes/page.tsx
@@ -35,7 +35,7 @@ export function validateRoutes(): RouteValidationResult {
     }
   });
 
-  // 2. Simple scan for orphaned page.tsx files (not in ROUTE_MAP)
+  // 2. Simple scan for orphaned page.tsx files (not in APP_ROUTES)
   const allPageFiles: string[] = [];
   function scan(dir: string, currentRoute = '') {
     const files = fs.readdirSync(dir);
@@ -52,7 +52,7 @@ export function validateRoutes(): RouteValidationResult {
   try {
     scan(appDir);
     allPageFiles.forEach(path => {
-      if (!ROUTE_MAP.find(r => r.path === path) && path !== '/') {
+      if (!APP_ROUTES.find(r => r.path === path) && path !== '/' && !path.includes('/[')) {
         results.orphaned.push(path);
       }
     });

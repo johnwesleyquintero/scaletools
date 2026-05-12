@@ -1,210 +1,217 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { SearchResult } from '@/services/searchService';
+import { APP_ROUTES, RouteConfig } from '@/lib/navigation/routeMap';
 import { 
-  Command, 
   Search as SearchIcon, 
-  Database, 
-  Box, 
-  X,
-  History,
-  Activity,
-  ArrowRight,
-  ShieldCheck
+  ArrowRight, 
+  Command, 
+  Terminal,
+  Zap,
+  Target,
+  FileDown,
+  RefreshCw,
+  Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCommandPalette } from '@/hooks/useCommandPalette';
+
+interface CommandItem {
+  id: string;
+  label: string;
+  subtitle: string;
+  icon: any;
+  action: () => void;
+  category: 'navigation' | 'action' | 'system';
+}
 
 export function CommandPalette() {
-  const [isOpen, setIsOpen] = useState(false);
+  const { isOpen, close } = useCommandPalette();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const closePalette = () => {
-    setIsOpen(false);
-    setQuery('');
-    setResults([]);
-  };
+  // 1. Build the command registry
+  const commands = useMemo((): CommandItem[] => {
+    const routeCommands: CommandItem[] = APP_ROUTES.filter(r => r.status !== 'hidden').map(route => ({
+      id: `nav-${route.id}`,
+      label: `Go to ${route.label}`,
+      subtitle: route.description,
+      icon: route.icon,
+      action: () => router.push(route.path),
+      category: 'navigation'
+    }));
+
+    const actionCommands: CommandItem[] = [
+      {
+        id: 'action-scan',
+        label: 'Run Market Scan',
+        subtitle: 'Initiate fresh Keepa intelligence gathering.',
+        icon: Zap,
+        action: () => router.push('/products'),
+        category: 'action'
+      },
+      {
+        id: 'action-allocate',
+        label: 'Generate Capital Allocation',
+        subtitle: 'Run simulation on active procurement drafts.',
+        icon: Target,
+        action: () => router.push('/procurement/allocation'),
+        category: 'action'
+      },
+      {
+        id: 'action-export',
+        label: 'Export All Draft POs',
+        subtitle: 'Generate supplier-ready CSVs for all active drafts.',
+        icon: FileDown,
+        action: () => router.push('/procurement/drafts'),
+        category: 'action'
+      },
+      {
+        id: 'action-recalibrate',
+        label: 'Recalibrate System Accuracy',
+        subtitle: 'Tune truth layer based on recent outcomes.',
+        icon: RefreshCw,
+        action: () => router.push('/procurement/outcomes'),
+        category: 'action'
+      }
+    ];
+
+    return [...actionCommands, ...routeCommands];
+  }, [router]);
+
+  // 2. Filter commands based on query
+  const filteredCommands = useMemo(() => {
+    if (!query) return commands.slice(0, 10);
+    const lowQuery = query.toLowerCase();
+    return commands.filter(c => 
+      c.label.toLowerCase().includes(lowQuery) || 
+      c.subtitle.toLowerCase().includes(lowQuery)
+    );
+  }, [query, commands]);
 
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setIsOpen((open) => !open);
-      }
-      if (e.key === 'Escape') {
-        closePalette();
-      }
-    };
-
-    document.addEventListener('keydown', down);
-    return () => document.removeEventListener('keydown', down);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) {
-      inputRef.current?.focus();
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    const fetchResults = async () => {
-      if (query.length < 2) {
-        setResults([]);
-        return;
-      }
-      setIsLoading(true);
-      try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-        const data = await response.json();
-        setResults(data);
+    const timer = setTimeout(() => {
+      if (isOpen) {
+        inputRef.current?.focus();
         setSelectedIndex(0);
-      } catch (e) {
-        console.error('Search failed');
-      } finally {
-        setIsLoading(false);
+      } else {
+        setQuery('');
       }
-    };
-
-    const timer = setTimeout(fetchResults, 200);
+    }, 0);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [isOpen]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev + 1) % results.length);
+      setSelectedIndex((prev) => (prev + 1) % filteredCommands.length);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev - 1 + results.length) % results.length);
+      setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
     } else if (e.key === 'Enter') {
-      if (results[selectedIndex]) {
-        handleSelect(results[selectedIndex]);
+      const selected = filteredCommands[selectedIndex];
+      if (selected) {
+        selected.action();
+        close();
       }
     }
-  };
-
-  const handleSelect = (result: any) => {
-    router.push(result.url);
-    closePalette();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh] p-4 bg-slate-950/80 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] p-4 sm:p-6 md:p-20 bg-slate-950/60 backdrop-blur-xl animate-in fade-in duration-300">
       <div 
-        className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
+        className="w-full max-w-2xl bg-slate-900/90 border border-slate-800 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in zoom-in-95 duration-200 ring-1 ring-white/10"
         onKeyDown={handleKeyDown}
       >
-        <div className="flex items-center gap-4 px-6 py-4 border-b border-slate-800">
-          <SearchIcon className="w-5 h-5 text-indigo-400" />
+        {/* Search Input */}
+        <div className="flex items-center gap-4 px-6 py-5 border-b border-slate-800/50">
+          <Command className="w-5 h-5 text-indigo-500" />
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search suppliers, ASINs, or commands (Ctrl+K)"
-            className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500 text-lg"
+            placeholder="Type a command or search routes..."
+            className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500 text-lg font-medium"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-800 rounded-lg border border-slate-700">
-            <span className="text-[10px] font-bold text-slate-400">ESC</span>
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-slate-800 rounded-lg border border-slate-700">
+            <span className="text-[10px] font-black text-slate-500">ESC</span>
           </div>
         </div>
 
-        <div className="max-h-[400px] overflow-y-auto p-2 scrollbar-thin">
-          {query === '' && (
-            <div className="p-4 space-y-4">
-              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] px-2">Quick Actions</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {[
-                  { label: 'Sync Sheets', icon: History, path: '/system/ingestion' },
-                  { label: 'Ingest Keepa', icon: Database, path: '/system/ingestion' },
-                  { label: 'Market Signals', icon: Activity, path: '/intelligence/market' },
-                  { label: 'System Health', icon: ShieldCheck, path: '/system/routes' }
-                ].map((action, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      router.push(action.path);
-                      closePalette();
-                    }}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all text-sm border border-transparent hover:border-slate-700 group"
-                  >
-                    <action.icon className="w-4 h-4 text-slate-500 group-hover:text-indigo-400" />
-                    {action.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isLoading && query !== '' && (
+        {/* Results List */}
+        <div className="max-h-[450px] overflow-y-auto p-2 scrollbar-none">
+          {filteredCommands.length === 0 ? (
             <div className="p-12 text-center">
-              <div className="inline-block w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2" />
-              <p className="text-sm text-slate-500">Searching the intelligence database...</p>
+              <Activity className="w-12 h-12 text-slate-800 mx-auto mb-4" />
+              <p className="text-slate-500 font-medium text-sm">No commands found for &quot;{query}&quot;</p>
             </div>
-          )}
-
-          {results.length > 0 && (
+          ) : (
             <div className="space-y-1">
-              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] px-4 py-2">Search Results</h3>
-              {results.map((result, index) => (
+              {filteredCommands.map((command, index) => (
                 <button
-                  key={result.id}
-                  onClick={() => handleSelect(result)}
+                  key={command.id}
+                  onClick={() => { command.action(); close(); }}
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={cn(
-                    "w-full flex items-center justify-between p-4 rounded-xl transition-all text-left group",
-                    index === selectedIndex ? "bg-indigo-500/10 border border-indigo-500/20" : "border border-transparent hover:bg-slate-800/50"
+                    "w-full flex items-center justify-between p-3.5 rounded-2xl transition-all text-left group border relative overflow-hidden",
+                    index === selectedIndex 
+                      ? "bg-white/[0.03] border-white/10 shadow-inner" 
+                      : "border-transparent hover:bg-white/[0.01]"
                   )}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 relative z-10">
                     <div className={cn(
-                      "p-2 rounded-lg",
-                      result.type === 'supplier' ? "bg-emerald-500/10 text-emerald-400" : "bg-indigo-500/10 text-indigo-400"
+                      "p-2.5 rounded-xl transition-all",
+                      index === selectedIndex ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]" : "bg-slate-800 text-slate-400"
                     )}>
-                      {result.type === 'supplier' ? <Database className="w-4 h-4" /> : <Box className="w-4 h-4" />}
+                      <command.icon className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-white flex items-center gap-2">
-                        {result.title}
-                        {index === selectedIndex && <ArrowRight className="w-3 h-3 text-indigo-500 animate-in slide-in-from-left-2" />}
+                      <div className="text-[13px] font-bold text-slate-200 flex items-center gap-2">
+                        {command.label}
+                        {index === selectedIndex && (
+                          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter ml-2 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">Active</span>
+                        )}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">{result.subtitle}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 font-medium">{command.subtitle}</div>
                     </div>
                   </div>
+                  
                   {index === selectedIndex && (
-                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Enter</span>
+                    <div className="flex items-center gap-2 relative z-10">
+                      <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800">Enter</span>
+                      <ArrowRight className="w-4 h-4 text-indigo-500 animate-in slide-in-from-left-2" />
+                    </div>
+                  )}
+
+                  {index === selectedIndex && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-transparent pointer-events-none" />
                   )}
                 </button>
               ))}
             </div>
           )}
-
-          {query !== '' && !isLoading && results.length === 0 && (
-            <div className="p-12 text-center">
-              <p className="text-sm text-slate-500">No results found for &quot;{query}&quot;</p>
-            </div>
-          )}
         </div>
 
-        <div className="p-3 bg-slate-950/50 border-t border-slate-800 flex items-center justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1"><ArrowRight className="w-3 h-3" /> Select</span>
-            <span className="flex items-center gap-1"><ArrowRight className="w-3 h-3 rotate-90" /> Navigate</span>
+        {/* Footer */}
+        <div className="p-4 bg-slate-950/40 border-t border-slate-800/50 flex items-center justify-between text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-2"><ArrowRight className="w-3 h-3 rotate-90" /> Navigate</span>
+            <span className="flex items-center gap-2"><ArrowRight className="w-3 h-3" /> Execute</span>
+            <span className="flex items-center gap-2"><Terminal className="w-3 h-3" /> Action Mode</span>
           </div>
-          <div>ScaleTools v1.5.3</div>
+          <div className="text-slate-700">ScaleTools Control Plane v2.0</div>
         </div>
       </div>
       
-      {/* Click outside to close */}
-      <div className="absolute inset-0 -z-10" onClick={closePalette} />
+      {/* Background Click to Close */}
+      <div className="absolute inset-0 -z-10" onClick={close} />
     </div>
   );
 }

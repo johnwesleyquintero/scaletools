@@ -1,6 +1,6 @@
 import React from 'react';
 import { validateRoutes } from '@/lib/navigation/routeValidator';
-import { ROUTE_MAP } from '@/lib/navigation/routeMap';
+import { APP_ROUTES } from '@/lib/navigation/routeMap';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { ShieldCheck, AlertCircle, CheckCircle2, Link2Off, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -60,14 +60,14 @@ export default function SystemRoutesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
-                {ROUTE_MAP.map((route) => {
+                {APP_ROUTES.map((route) => {
                   const isValid = validation.valid.includes(route.path);
                   return (
                     <tr key={route.path} className="hover:bg-slate-800/30 transition-colors">
                       <td className="px-6 py-4">
                         <span className={cn(
                           "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border",
-                          route.status === 'active' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                          route.status === 'stable' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
                           route.status === 'beta' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                           "bg-slate-500/10 text-slate-500 border-slate-500/20"
                         )}>
